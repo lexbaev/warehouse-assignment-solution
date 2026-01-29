@@ -92,7 +92,6 @@ class FulfilmentAssignmentUseCaseTest {
                 mock(DbFulfilmentAssignment.class),
                 mock(DbFulfilmentAssignment.class)
         ));
-        when(assignmentRepository.countByWarehouseBusinessUnitCodeAndStoreId("W1", 1L)).thenReturn(0L);
 
         assertThrows(WebApplicationException.class, () ->
                 useCase.assignWarehouseToProductForStore(1L, "W1", 2L));
@@ -104,7 +103,6 @@ class FulfilmentAssignmentUseCaseTest {
         when(assignmentRepository.findByStoreId(1L)).thenReturn(List.of());
         when(assignmentRepository.countByStoreIdAndWarehouseBusinessUnitCode(1L, "W1")).thenReturn(1L);
         when(assignmentRepository.findByWarehouseBusinessUnitCode("W1")).thenReturn(List.of());
-        when(assignmentRepository.countByWarehouseBusinessUnitCodeAndStoreId("W1", 1L)).thenReturn(1L);
 
         Store store = new Store();
         Product product = new Product();
@@ -132,8 +130,6 @@ class FulfilmentAssignmentUseCaseTest {
         when(assignmentRepository.findByStoreId(1L)).thenReturn(List.of());
         when(assignmentRepository.countByStoreIdAndWarehouseBusinessUnitCode(1L, "W1")).thenReturn(1L);
         when(assignmentRepository.findByWarehouseBusinessUnitCode("W1")).thenReturn(List.of());
-        when(assignmentRepository.countByWarehouseBusinessUnitCodeAndStoreId("W1", 1L)).thenReturn(1L);
-
         when(storeRepository.findById(1L)).thenReturn(null);
 
         assertThrows(WebApplicationException.class, () ->
@@ -146,8 +142,6 @@ class FulfilmentAssignmentUseCaseTest {
         when(assignmentRepository.findByStoreId(1L)).thenReturn(List.of());
         when(assignmentRepository.countByStoreIdAndWarehouseBusinessUnitCode(1L, "W1")).thenReturn(1L);
         when(assignmentRepository.findByWarehouseBusinessUnitCode("W1")).thenReturn(List.of());
-        when(assignmentRepository.countByWarehouseBusinessUnitCodeAndStoreId("W1", 1L)).thenReturn(1L);
-
         Store store = new Store();
         when(storeRepository.findById(1L)).thenReturn(store);
         when(productRepository.findById(2L)).thenReturn(null);
@@ -162,7 +156,6 @@ class FulfilmentAssignmentUseCaseTest {
         when(assignmentRepository.findByStoreId(1L)).thenReturn(List.of());
         when(assignmentRepository.countByStoreIdAndWarehouseBusinessUnitCode(1L, "W1")).thenReturn(1L);
         when(assignmentRepository.findByWarehouseBusinessUnitCode("W1")).thenReturn(List.of());
-        when(assignmentRepository.countByWarehouseBusinessUnitCodeAndStoreId("W1", 1L)).thenReturn(1L);
 
         Store store = new Store();
         Product product = new Product();

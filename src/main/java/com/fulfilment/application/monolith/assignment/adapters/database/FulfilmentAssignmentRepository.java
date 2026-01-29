@@ -16,24 +16,12 @@ public class FulfilmentAssignmentRepository implements PanacheRepository<DbFulfi
         return count("store.id = ?1 and warehouse.businessUnitCode = ?2 and warehouse.archivedAt is null", storeId, warehouseBusinessUnitCode);
     }
 
-    public long countByWarehouseId(String warehouseId) {
-        return count("warehouse.businessUnitCode = ?1 and warehouse.archivedAt is null", warehouseId);
-    }
-
-    public long countByWarehouseBusinessUnitCodeAndStoreId(String warehouseBusinessUnitCode, Long storeId) {
-        return count("warehouse.businessUnitCode = ?1 and warehouse.archivedAt is null and store.id = ?2", warehouseBusinessUnitCode, storeId);
-    }
-
     public List<DbFulfilmentAssignment> findByStoreId(Long storeId) {
         return list("store.id = ?1", storeId);
     }
 
     public List<DbFulfilmentAssignment> findByWarehouseBusinessUnitCode(String warehouseBusinessUnitCode) {
         return list("warehouse.businessUnitCode = ?1 and warehouse.archivedAt is null", warehouseBusinessUnitCode);
-    }
-
-    public List<DbFulfilmentAssignment> findByProductId(Long productId) {
-        return list("product.id = ?1", productId);
     }
 
     public void create(DbFulfilmentAssignment assignment) {

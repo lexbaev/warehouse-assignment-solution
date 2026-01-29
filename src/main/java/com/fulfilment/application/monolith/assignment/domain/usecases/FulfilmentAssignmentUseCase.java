@@ -48,7 +48,7 @@ public class FulfilmentAssignmentUseCase implements FulfilmentAssignmentOperatio
         }
 
         // Constraint 3: Each Warehouse can store max 5 types of Products
-        if (getWarehouseProductCount(warehouseBusinessUnitCode) >= 5 /*&& getCountByWarehouseBusinessUnitCodeAndStoreId(storeId, warehouseBusinessUnitCode) == 0*/) {
+        if (getWarehouseProductCount(warehouseBusinessUnitCode) >= 5) {
             throw new WebApplicationException("A warehouse can store at most 5 types of products.", 404);
         }
 
@@ -83,10 +83,6 @@ public class FulfilmentAssignmentUseCase implements FulfilmentAssignmentOperatio
 
     private long getCountByStoreIdAndWarehouseBusinessUnitCode(Long storeId, String warehouseBusinessUnitCode) {
         return fulfilmentAssignmentRepository.countByStoreIdAndWarehouseBusinessUnitCode(storeId, warehouseBusinessUnitCode);
-    }
-
-    private long getCountByWarehouseBusinessUnitCodeAndStoreId(Long storeId, String warehouseBusinessUnitCode) {
-        return fulfilmentAssignmentRepository.countByWarehouseBusinessUnitCodeAndStoreId(warehouseBusinessUnitCode, storeId);
     }
 
     private long getWarehouseProductCount(String warehouseBusinessUnitCode) {
