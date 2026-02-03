@@ -12,7 +12,6 @@ import com.fulfilment.application.monolith.stores.StoreRepository;
 import com.fulfilment.application.monolith.warehouses.adapters.database.WarehouseRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.UserTransaction;
-import jakarta.ws.rs.WebApplicationException;
 
 import java.util.List;
 

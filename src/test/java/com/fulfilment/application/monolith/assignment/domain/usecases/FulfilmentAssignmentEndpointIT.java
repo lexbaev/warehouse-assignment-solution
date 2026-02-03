@@ -41,7 +41,7 @@ public class FulfilmentAssignmentEndpointIT {
                 .post(path)
                 .then()
                 .statusCode(400)
-                .body(containsString("A product can be fulfilled by at most 2 warehouses per store."));;
+                .body(containsString("A product can be fulfilled by at most 2 warehouses per store."));
     }
 
     @Test

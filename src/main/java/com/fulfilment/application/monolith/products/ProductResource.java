@@ -24,7 +24,7 @@ public class ProductResource {
 
     private final ProductRepository productRepository;
 
-    private UserTransaction userTransaction;
+    private final UserTransaction userTransaction;
 
     public ProductResource(ProductRepository productRepository, UserTransaction userTransaction) {
         this.productRepository = productRepository;
