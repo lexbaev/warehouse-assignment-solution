@@ -2,6 +2,8 @@ package com.fulfilment.application.monolith.assignment.adapters.restapi;
 
 import com.fulfilment.application.monolith.assignment.domain.models.FulfilmentAssignmentDto;
 import com.fulfilment.application.monolith.assignment.domain.ports.FulfilmentAssignmentOperation;
+import com.fulfilment.application.monolith.exceptions.BusinessRuleViolationException;
+import com.fulfilment.application.monolith.exceptions.ResourceNotFoundException;
 import io.smallrye.common.constraint.NotNull;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.*;
@@ -24,7 +26,13 @@ public class FulfilmentAssignmentResource {
     @Produces("application/json")
     @Consumes("application/json")
     public FulfilmentAssignmentDto assignWarehouseToProductForStore(@NotNull FulfilmentAssignmentRequest request) {
-        return fulfilmentAssignmentOperation.assignWarehouseToProductForStore(request.storeId(), request.warehouseBusinessUnitCode(), request.productId());
+        try {
+            return fulfilmentAssignmentOperation.assignWarehouseToProductForStore(request.storeId(), request.warehouseBusinessUnitCode(), request.productId());
+        } catch (BusinessRuleViolationException e) {
+            throw new WebApplicationException(e.getMessage(), 400);
+        } catch (ResourceNotFoundException e) {
+            throw new WebApplicationException("Resource not found", 404);
+        }
     }
 
     @Path("/{id}")

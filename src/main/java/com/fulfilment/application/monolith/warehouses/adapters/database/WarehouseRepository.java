@@ -5,18 +5,16 @@ import com.fulfilment.application.monolith.warehouses.domain.ports.WarehouseStor
 import com.fulfilment.application.monolith.warehouses.mappers.DbWarehouseMapper;
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class WarehouseRepository implements WarehouseStore, PanacheRepository<DbWarehouse> {
 
   public static final String BUSINESS_UNIT_CODE_1_AND_ARCHIVED_AT_IS_NULL = "businessUnitCode = ?1 and archivedAt is null";
+
   private final DbWarehouseMapper mapper;
 
   public WarehouseRepository(DbWarehouseMapper mapper) {
@@ -29,14 +27,12 @@ public class WarehouseRepository implements WarehouseStore, PanacheRepository<Db
   }
 
   @Override
-  @Transactional
   public void create(Warehouse warehouse) {
     DbWarehouse entity = mapper.toEntity(warehouse);
     persist(entity);
   }
 
   @Override
-  @Transactional
   public void update(Warehouse warehouse) {
     DbWarehouse entity = find(BUSINESS_UNIT_CODE_1_AND_ARCHIVED_AT_IS_NULL, warehouse.getBusinessUnitCode()).firstResult();
     if (entity != null) {
@@ -46,7 +42,6 @@ public class WarehouseRepository implements WarehouseStore, PanacheRepository<Db
   }
 
   @Override
-  @Transactional
   public void remove(Warehouse warehouse) {
     DbWarehouse entity = find(BUSINESS_UNIT_CODE_1_AND_ARCHIVED_AT_IS_NULL, warehouse.getBusinessUnitCode()).firstResult();
     if (entity != null) {
@@ -60,6 +55,11 @@ public class WarehouseRepository implements WarehouseStore, PanacheRepository<Db
     return Optional.ofNullable(
             find(BUSINESS_UNIT_CODE_1_AND_ARCHIVED_AT_IS_NULL, buCode).firstResult()
     );
+  }
+
+  @Override
+  public boolean isCreationOrReplacementFeasible(String locationId, int maxNumberOfWarehouses) {
+      return count("location = ?1 and archivedAt is null", locationId) < maxNumberOfWarehouses;
   }
 
   @Override

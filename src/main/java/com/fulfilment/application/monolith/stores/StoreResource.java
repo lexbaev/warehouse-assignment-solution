@@ -88,15 +88,14 @@ public class StoreResource {
     if (updatedStore.getName() == null) {
       throw new WebApplicationException("Store Name was not set on request.", 422);
     }
-
-    Store entity = Store.findById(id);
-
-    if (entity == null) {
-      throw new WebApplicationException("Store with id of " + id + " does not exist.", 404);
-    }
-
     try {
       userTransaction.begin();
+      Store entity = Store.findById(id);
+
+      if (entity == null) {
+        throw new WebApplicationException("Store with id of " + id + " does not exist.", 404);
+      }
+      
       // Better to use mappers for this
       entity.setName(updatedStore.getName());
       entity.setQuantityProductsInStock(updatedStore.getQuantityProductsInStock());
@@ -124,14 +123,13 @@ public class StoreResource {
       throw new WebApplicationException("Store Name was not set on request.", 422);
     }
 
-    Store entity = Store.findById(id);
-
-    if (entity == null) {
-      throw new WebApplicationException("Store with id of " + id + " does not exist.", 404);
-    }
-
     try {
       userTransaction.begin();
+      Store entity = Store.findById(id);
+
+      if (entity == null) {
+        throw new WebApplicationException("Store with id of " + id + " does not exist.", 404);
+      }
 
       if (updatedStore.getName() != null) {
         entity.setName(updatedStore.getName());

@@ -4,13 +4,15 @@ import com.fulfilment.application.monolith.assignment.adapters.database.DbFulfil
 import com.fulfilment.application.monolith.assignment.adapters.database.FulfilmentAssignmentRepository;
 import com.fulfilment.application.monolith.assignment.domain.models.FulfilmentAssignmentDto;
 import com.fulfilment.application.monolith.assignment.mappers.FulfilmentAssignmentMapper;
+import com.fulfilment.application.monolith.exceptions.BusinessRuleViolationException;
+import com.fulfilment.application.monolith.exceptions.ResourceNotFoundException;
 import com.fulfilment.application.monolith.products.Product;
 import com.fulfilment.application.monolith.products.ProductRepository;
 import com.fulfilment.application.monolith.stores.Store;
 import com.fulfilment.application.monolith.stores.StoreRepository;
 import com.fulfilment.application.monolith.warehouses.adapters.database.DbWarehouse;
 import com.fulfilment.application.monolith.warehouses.adapters.database.WarehouseRepository;
-import jakarta.ws.rs.WebApplicationException;
+import jakarta.transaction.UserTransaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -32,13 +34,14 @@ class FulfilmentAssignmentUseCaseTest {
 
     @BeforeEach
     void setUp() {
+        UserTransaction userTransaction = mock(UserTransaction.class);
         assignmentRepository = mock(FulfilmentAssignmentRepository.class);
         productRepository = mock(ProductRepository.class);
         storeRepository = mock(StoreRepository.class);
         warehouseRepository = mock(WarehouseRepository.class);
         assignmentMapper = mock(FulfilmentAssignmentMapper.class);
         useCase = new FulfilmentAssignmentUseCase(
-                assignmentRepository, productRepository, storeRepository, warehouseRepository, assignmentMapper
+                userTransaction, assignmentRepository, productRepository, storeRepository, warehouseRepository, assignmentMapper
         );
     }
 
@@ -56,18 +59,39 @@ class FulfilmentAssignmentUseCaseTest {
     }
 
     @Test
-    void getAssignmentDtoById_throws_whenNotFound() {
-        when(assignmentRepository.findById(1L)).thenReturn(null);
+    void assignWarehouseToProductForStore_throwsBusinessRuleViolation_whenProductWarehouseLimitReached() {
+        when(assignmentRepository.countByStoreIdAndProductId(1L, 2L)).thenReturn(2L);
 
-        assertThrows(WebApplicationException.class, () -> useCase.getAssignmentDtoById(1L));
+        assertThrows(BusinessRuleViolationException.class, () ->
+                useCase.assignWarehouseToProductForStore(1L, "W1", 2L));
     }
 
     @Test
-    void assignWarehouseToProductForStore_throws_whenProductWarehouseLimitReached() {
-        when(assignmentRepository.countByStoreIdAndProductId(1L, 2L)).thenReturn(2L);
+    void assignWarehouseToProductForStore_throwsBusinessRuleViolation_whenStoreWarehouseLimitReached() {
+        when(assignmentRepository.countByStoreIdAndProductId(1L, 2L)).thenReturn(0L);
+        when(assignmentRepository.countDistinctWarehousesByStoreId(1L)).thenReturn(3L);
+        when(assignmentRepository.countByStoreIdAndWarehouseBusinessUnitCode(1L, "W1")).thenReturn(0L);
 
-        assertThrows(WebApplicationException.class, () ->
+        assertThrows(BusinessRuleViolationException.class, () ->
                 useCase.assignWarehouseToProductForStore(1L, "W1", 2L));
+    }
+
+    @Test
+    void assignWarehouseToProductForStore_throwsBusinessRuleViolation_whenWarehouseProductLimitReached() {
+        when(assignmentRepository.countByStoreIdAndProductId(1L, 2L)).thenReturn(0L);
+        when(assignmentRepository.countDistinctWarehousesByStoreId(1L)).thenReturn(2L);
+        when(assignmentRepository.countByStoreIdAndWarehouseBusinessUnitCode(1L, "W1")).thenReturn(1L);
+        when(assignmentRepository.countDistinctProductsByWarehouseBusinessUnitCode("W1")).thenReturn(5L);
+
+        assertThrows(BusinessRuleViolationException.class, () ->
+                useCase.assignWarehouseToProductForStore(1L, "W1", 2L));
+    }
+
+    @Test
+    void getAssignmentDtoById_throws_whenNotFound() {
+        when(assignmentRepository.findById(1L)).thenReturn(null);
+
+        assertThrows(ResourceNotFoundException.class, () -> useCase.getAssignmentDtoById(1L));
     }
 
     @Test
@@ -76,7 +100,7 @@ class FulfilmentAssignmentUseCaseTest {
         when(assignmentRepository.findByStoreId(1L)).thenReturn(List.of(mock(DbFulfilmentAssignment.class), mock(DbFulfilmentAssignment.class), mock(DbFulfilmentAssignment.class)));
         when(assignmentRepository.countByStoreIdAndWarehouseBusinessUnitCode(1L, "W1")).thenReturn(0L);
 
-        assertThrows(WebApplicationException.class, () ->
+        assertThrows(IllegalStateException.class, () ->
                 useCase.assignWarehouseToProductForStore(1L, "W1", 2L));
     }
 
@@ -93,12 +117,12 @@ class FulfilmentAssignmentUseCaseTest {
                 mock(DbFulfilmentAssignment.class)
         ));
 
-        assertThrows(WebApplicationException.class, () ->
+        assertThrows(IllegalStateException.class, () ->
                 useCase.assignWarehouseToProductForStore(1L, "W1", 2L));
     }
 
     @Test
-    void assignWarehouseToProductForStore_persistsAndReturnsDto_whenValid() {
+    void assignWarehouseToProductForStore_persistsAndReturnsDto_whenValid() throws BusinessRuleViolationException {
         when(assignmentRepository.countByStoreIdAndProductId(1L, 2L)).thenReturn(0L);
         when(assignmentRepository.findByStoreId(1L)).thenReturn(List.of());
         when(assignmentRepository.countByStoreIdAndWarehouseBusinessUnitCode(1L, "W1")).thenReturn(1L);
@@ -107,16 +131,12 @@ class FulfilmentAssignmentUseCaseTest {
         Store store = new Store();
         Product product = new Product();
         DbWarehouse warehouse = new DbWarehouse();
-        DbFulfilmentAssignment assignment = new DbFulfilmentAssignment();
         FulfilmentAssignmentDto dto = mock(FulfilmentAssignmentDto.class);
 
         when(storeRepository.findById(1L)).thenReturn(store);
         when(productRepository.findById(2L)).thenReturn(product);
         when(warehouseRepository.findByBusinessUnitCode("W1")).thenReturn(Optional.of(warehouse));
-        doAnswer(invocation -> {
-            DbFulfilmentAssignment arg = invocation.getArgument(0);
-            return arg;
-        }).when(assignmentRepository).create(any(DbFulfilmentAssignment.class));
+        doAnswer(invocation -> invocation.<DbFulfilmentAssignment>getArgument(0)).when(assignmentRepository).create(any(DbFulfilmentAssignment.class));
         when(assignmentMapper.toDto(any(DbFulfilmentAssignment.class))).thenReturn(dto);
 
         FulfilmentAssignmentDto result = useCase.assignWarehouseToProductForStore(1L, "W1", 2L);
@@ -132,7 +152,7 @@ class FulfilmentAssignmentUseCaseTest {
         when(assignmentRepository.findByWarehouseBusinessUnitCode("W1")).thenReturn(List.of());
         when(storeRepository.findById(1L)).thenReturn(null);
 
-        assertThrows(WebApplicationException.class, () ->
+        assertThrows(IllegalStateException.class, () ->
                 useCase.assignWarehouseToProductForStore(1L, "W1", 2L));
     }
 
@@ -146,7 +166,7 @@ class FulfilmentAssignmentUseCaseTest {
         when(storeRepository.findById(1L)).thenReturn(store);
         when(productRepository.findById(2L)).thenReturn(null);
 
-        assertThrows(WebApplicationException.class, () ->
+        assertThrows(IllegalStateException.class, () ->
                 useCase.assignWarehouseToProductForStore(1L, "W1", 2L));
     }
 
@@ -163,7 +183,7 @@ class FulfilmentAssignmentUseCaseTest {
         when(productRepository.findById(2L)).thenReturn(product);
         when(warehouseRepository.findByBusinessUnitCode("W1")).thenReturn(Optional.empty());
 
-        assertThrows(WebApplicationException.class, () ->
+        assertThrows(IllegalStateException.class, () ->
                 useCase.assignWarehouseToProductForStore(1L, "W1", 2L));
     }
 }

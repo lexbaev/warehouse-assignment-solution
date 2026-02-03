@@ -6,6 +6,7 @@ import jakarta.enterprise.context.RequestScoped;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @RequestScoped
 public class LocationGateway implements LocationResolver {
@@ -26,10 +27,9 @@ public class LocationGateway implements LocationResolver {
   }
 
   @Override
-  public Location resolveByIdentifier(String identifier) {
+  public Optional<Location> resolveByIdentifier(String identifier) {
     return locations.stream()
             .filter(location -> location.identification().equalsIgnoreCase(identifier))
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("Location not found for identifier: " + identifier));
+            .findFirst();
   }
 }

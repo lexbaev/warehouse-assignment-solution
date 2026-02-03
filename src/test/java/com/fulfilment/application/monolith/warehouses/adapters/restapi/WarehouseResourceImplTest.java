@@ -1,5 +1,6 @@
 package com.fulfilment.application.monolith.warehouses.adapters.restapi;
 
+import com.fulfilment.application.monolith.exceptions.BusinessRuleViolationException;
 import com.fulfilment.application.monolith.warehouses.domain.ports.*;
 import com.fulfilment.application.monolith.warehouses.mappers.WarehouseMapper;
 import com.warehouse.api.beans.Warehouse;
@@ -11,10 +12,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 class WarehouseResourceImplTest {
 
@@ -57,7 +54,7 @@ class WarehouseResourceImplTest {
     }
 
     @Test
-    void createANewWarehouseUnit_delegatesToOperationAndReturnsInput() {
+    void createANewWarehouseUnit_delegatesToOperationAndReturnsInput() throws BusinessRuleViolationException {
         Warehouse apiWarehouse = mock(Warehouse.class);
         com.fulfilment.application.monolith.warehouses.domain.models.Warehouse domainWarehouse =
                 mock(com.fulfilment.application.monolith.warehouses.domain.models.Warehouse.class);
@@ -93,7 +90,7 @@ class WarehouseResourceImplTest {
     }
 
     @Test
-    void archiveAWarehouseUnitByID_delegatesToOperation_whenFound() {
+    void archiveAWarehouseUnitByID_delegatesToOperation_whenFound() throws BusinessRuleViolationException {
         Warehouse apiWarehouse = mock(Warehouse.class);
         com.fulfilment.application.monolith.warehouses.domain.models.Warehouse domainWarehouse =
                 mock(com.fulfilment.application.monolith.warehouses.domain.models.Warehouse.class);
@@ -107,7 +104,7 @@ class WarehouseResourceImplTest {
     }
 
     @Test
-    void replaceTheCurrentActiveWarehouse_delegatesToOperationAndReturnsInput() {
+    void replaceTheCurrentActiveWarehouse_delegatesToOperationAndReturnsInput() throws BusinessRuleViolationException {
         Warehouse apiWarehouse = mock(Warehouse.class);
         com.fulfilment.application.monolith.warehouses.domain.models.Warehouse domainWarehouse =
                 mock(com.fulfilment.application.monolith.warehouses.domain.models.Warehouse.class);

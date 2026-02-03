@@ -5,17 +5,21 @@ import com.fulfilment.application.monolith.assignment.adapters.database.Fulfilme
 import com.fulfilment.application.monolith.assignment.domain.models.FulfilmentAssignmentDto;
 import com.fulfilment.application.monolith.assignment.domain.ports.FulfilmentAssignmentOperation;
 import com.fulfilment.application.monolith.assignment.mappers.FulfilmentAssignmentMapper;
+import com.fulfilment.application.monolith.exceptions.BusinessRuleViolationException;
+import com.fulfilment.application.monolith.exceptions.ResourceNotFoundException;
 import com.fulfilment.application.monolith.products.ProductRepository;
 import com.fulfilment.application.monolith.stores.StoreRepository;
 import com.fulfilment.application.monolith.warehouses.adapters.database.WarehouseRepository;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.transaction.Transactional;
+import jakarta.transaction.UserTransaction;
 import jakarta.ws.rs.WebApplicationException;
 
 import java.util.List;
 
 @ApplicationScoped
 public class FulfilmentAssignmentUseCase implements FulfilmentAssignmentOperation {
+
+    private final UserTransaction userTransaction;
 
     private final FulfilmentAssignmentRepository fulfilmentAssignmentRepository;
 
@@ -27,7 +31,8 @@ public class FulfilmentAssignmentUseCase implements FulfilmentAssignmentOperatio
 
     private final FulfilmentAssignmentMapper fulfilmentAssignmentMapper;
 
-    public FulfilmentAssignmentUseCase(FulfilmentAssignmentRepository fulfilmentAssignmentRepository, ProductRepository productRepository, StoreRepository storeRepository, WarehouseRepository warehouseRepository, FulfilmentAssignmentMapper fulfilmentAssignmentMapper) {
+    public FulfilmentAssignmentUseCase(UserTransaction userTransaction, FulfilmentAssignmentRepository fulfilmentAssignmentRepository, ProductRepository productRepository, StoreRepository storeRepository, WarehouseRepository warehouseRepository, FulfilmentAssignmentMapper fulfilmentAssignmentMapper) {
+        this.userTransaction = userTransaction;
         this.fulfilmentAssignmentRepository = fulfilmentAssignmentRepository;
         this.productRepository = productRepository;
         this.storeRepository = storeRepository;
@@ -35,30 +40,43 @@ public class FulfilmentAssignmentUseCase implements FulfilmentAssignmentOperatio
         this.fulfilmentAssignmentMapper = fulfilmentAssignmentMapper;
     }
 
-    @Transactional
-    public FulfilmentAssignmentDto assignWarehouseToProductForStore(Long storeId, String warehouseBusinessUnitCode, Long productId) {
-        // Constraint 1: Each Product can be fulfilled by max 2 Warehouses per Store
-        if (getCountProductWarehouse(storeId, productId) >= 2) {
-            throw new WebApplicationException("A product can be fulfilled by at most 2 warehouses per store.", 404);
-        }
+    public FulfilmentAssignmentDto assignWarehouseToProductForStore(Long storeId, String warehouseBusinessUnitCode, Long productId) throws BusinessRuleViolationException {
+        try {
+            userTransaction.begin();
 
-        // Constraint 2: Each Store can be fulfilled by max 3 Warehouses
-        if (getCountStoreWarehouse(storeId) >= 3 && getCountByStoreIdAndWarehouseBusinessUnitCode(storeId, warehouseBusinessUnitCode) == 0) {
-            throw new WebApplicationException("A storeId can be fulfilled by at most 3 warehouses.", 404);
-        }
+            if (getCountProductWarehouse(storeId, productId) >= 2) {
+                throw new BusinessRuleViolationException("A product can be fulfilled by at most 2 warehouses per store.");
+            }
 
-        // Constraint 3: Each Warehouse can store max 5 types of Products
-        if (getWarehouseProductCount(warehouseBusinessUnitCode) >= 5) {
-            throw new WebApplicationException("A warehouse can store at most 5 types of products.", 404);
-        }
+            if (getCountStoreWarehouse(storeId) >= 3 && getCountByStoreIdAndWarehouseBusinessUnitCode(storeId, warehouseBusinessUnitCode) == 0) {
+                throw new BusinessRuleViolationException("A storeId can be fulfilled by at most 3 warehouses.");
+            }
 
-        return persistAndGetFulfilmentAssignment(storeId, productId, warehouseBusinessUnitCode);
+            if (getWarehouseProductCount(warehouseBusinessUnitCode) >= 5) {
+                throw new BusinessRuleViolationException("A warehouse can store at most 5 types of products.");
+            }
+
+            FulfilmentAssignmentDto result = persistAndGetFulfilmentAssignment(storeId, productId, warehouseBusinessUnitCode);
+
+            userTransaction.commit();
+            return result;
+        } catch (Exception e) {
+            try {
+                userTransaction.rollback();
+            } catch (Exception rollbackEx) {
+                // Optionally log rollback failure
+            }
+            if (e instanceof BusinessRuleViolationException) {
+                throw (BusinessRuleViolationException) e;
+            }
+            throw new IllegalStateException("Transaction failed", e);
+        }
     }
 
     public FulfilmentAssignmentDto getAssignmentDtoById(Long assignmentId) {
         DbFulfilmentAssignment assignment = fulfilmentAssignmentRepository.findById(assignmentId);
         if (assignment == null) {
-            throw new WebApplicationException("Assignment not found: " + assignmentId, 404);
+            throw new ResourceNotFoundException("Assignment not found: " + assignmentId);
         }
         return fulfilmentAssignmentMapper.toDto(assignment);
     }
@@ -75,10 +93,7 @@ public class FulfilmentAssignmentUseCase implements FulfilmentAssignmentOperatio
     }
 
     private long getCountStoreWarehouse(Long storeId) {
-        return fulfilmentAssignmentRepository.findByStoreId(storeId).stream()
-                .map(DbFulfilmentAssignment::getWarehouse)
-                .distinct()
-                .count();
+        return fulfilmentAssignmentRepository.countDistinctWarehousesByStoreId(storeId);
     }
 
     private long getCountByStoreIdAndWarehouseBusinessUnitCode(Long storeId, String warehouseBusinessUnitCode) {
@@ -86,26 +101,23 @@ public class FulfilmentAssignmentUseCase implements FulfilmentAssignmentOperatio
     }
 
     private long getWarehouseProductCount(String warehouseBusinessUnitCode) {
-        return fulfilmentAssignmentRepository.findByWarehouseBusinessUnitCode(warehouseBusinessUnitCode).stream()
-                .map(DbFulfilmentAssignment::getProduct)
-                .distinct()
-                .count();
+        return fulfilmentAssignmentRepository.countDistinctProductsByWarehouseBusinessUnitCode(warehouseBusinessUnitCode);
     }
 
     private FulfilmentAssignmentDto persistAndGetFulfilmentAssignment(Long storeId, Long productId, String warehouseBusinessUnitCode) {
         DbFulfilmentAssignment dbFulfilmentAssignment = new DbFulfilmentAssignment();
         var storeEntity = storeRepository.findById(storeId);
         if (storeEntity == null) {
-            throw  new WebApplicationException("Store not found: " + storeId, 404);
+            throw  new ResourceNotFoundException("Store not found: " + storeId);
         }
 
         var productEntity = productRepository.findById(productId);
         if (productEntity == null) {
-            throw new WebApplicationException("Product not found: " + productId, 404);
+            throw new ResourceNotFoundException("Product not found: " + productId);
         }
 
         var warehouseEntity = warehouseRepository.findByBusinessUnitCode(warehouseBusinessUnitCode)
-                .orElseThrow(() -> new WebApplicationException("Warehouse not found: " + warehouseBusinessUnitCode, 404));
+                .orElseThrow(() -> new ResourceNotFoundException("Warehouse not found: " + warehouseBusinessUnitCode));
 
         dbFulfilmentAssignment.setStore(storeEntity);
         dbFulfilmentAssignment.setProduct(productEntity);

@@ -40,7 +40,7 @@ public class FulfilmentAssignmentEndpointIT {
                 .header("Accept", "application/json")
                 .post(path)
                 .then()
-                .statusCode(404)
+                .statusCode(400)
                 .body(containsString("A product can be fulfilled by at most 2 warehouses per store."));;
     }
 
@@ -83,7 +83,7 @@ public class FulfilmentAssignmentEndpointIT {
                 .header("Accept", "application/json")
                 .post(path)
                 .then()
-                .statusCode(404)
+                .statusCode(400)
                 .body(containsString("A storeId can be fulfilled by at most 3 warehouses."));
     }
 
@@ -144,7 +144,7 @@ public class FulfilmentAssignmentEndpointIT {
                 .header("Accept", "application/json")
                 .post(path)
                 .then()
-                .statusCode(404)
+                .statusCode(400)
                 .body(containsString("A warehouse can store at most 5 types of products."));
     }
 }

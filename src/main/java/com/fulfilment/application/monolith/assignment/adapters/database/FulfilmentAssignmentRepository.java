@@ -27,4 +27,24 @@ public class FulfilmentAssignmentRepository implements PanacheRepository<DbFulfi
     public void create(DbFulfilmentAssignment assignment) {
         persist(assignment);
     }
+
+    public long countDistinctWarehousesByStoreId(Long storeId) {
+        return getEntityManager()
+                .createQuery(
+                        "select count(distinct a.warehouse.businessUnitCode) from DbFulfilmentAssignment a where a.store.id = :storeId and a.warehouse.archivedAt is null",
+                        Long.class
+                )
+                .setParameter("storeId", storeId)
+                .getSingleResult();
+    }
+
+    public long countDistinctProductsByWarehouseBusinessUnitCode(String warehouseBusinessUnitCode) {
+        return getEntityManager()
+                .createQuery(
+                        "select count(distinct a.product.id) from DbFulfilmentAssignment a where a.warehouse.businessUnitCode = :warehouseBusinessUnitCode and a.warehouse.archivedAt is null",
+                        Long.class
+                )
+                .setParameter("warehouseBusinessUnitCode", warehouseBusinessUnitCode)
+                .getSingleResult();
+    }
 }

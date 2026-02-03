@@ -1,14 +1,13 @@
 package com.fulfilment.application.monolith.warehouses.domain.usecases;
 
-import com.fulfilment.application.monolith.warehouses.adapters.database.DbWarehouse;
+import com.fulfilment.application.monolith.exceptions.BusinessRuleViolationException;
 import com.fulfilment.application.monolith.warehouses.domain.models.Location;
 import com.fulfilment.application.monolith.warehouses.domain.models.Warehouse;
 import com.fulfilment.application.monolith.warehouses.domain.ports.CreateWarehouseOperation;
 import com.fulfilment.application.monolith.warehouses.domain.ports.WarehouseStore;
 import com.fulfilment.application.monolith.warehouses.domain.validations.WarehouseValidation;
 import jakarta.enterprise.context.ApplicationScoped;
-
-import java.util.List;
+import jakarta.transaction.UserTransaction;
 
 @ApplicationScoped
 public class CreateWarehouseUseCase implements CreateWarehouseOperation {
@@ -17,22 +16,34 @@ public class CreateWarehouseUseCase implements CreateWarehouseOperation {
 
   private final WarehouseValidation warehouseValidation;
 
-  public CreateWarehouseUseCase(WarehouseStore warehouseStore, WarehouseValidation warehouseValidation) {
+  private final UserTransaction userTransaction;
+
+  public CreateWarehouseUseCase(WarehouseStore warehouseStore, WarehouseValidation warehouseValidation, UserTransaction userTransaction) {
       this.warehouseStore = warehouseStore;
       this.warehouseValidation = warehouseValidation;
+      this.userTransaction = userTransaction;
   }
 
   @Override
-  public void create(Warehouse warehouse) {
-    // My assumption that number of elements is not large (<1000), so fetching all is acceptable
-    List<DbWarehouse> warehouseStoreAll = warehouseStore.getAll();
+  public void create(Warehouse warehouse) throws BusinessRuleViolationException {
+    try {
+      userTransaction.begin();
 
-    warehouseValidation.verifyBusinessUnitCodeIsNew(warehouse.getBusinessUnitCode(), warehouseStoreAll);
-    Location location = warehouseValidation.validateAndGetLocation(warehouse.getLocation());
-    warehouseValidation.validateCreationFeasibility(location, warehouseStoreAll);
-    warehouseValidation.validateCapacityAndStock(location, warehouse.getCapacity());
+      warehouseValidation.verifyBusinessUnitCodeIsNew(warehouse.getBusinessUnitCode());
+      Location location = warehouseValidation.validateAndGetLocation(warehouse.getLocation());
+      warehouseValidation.validateCreationFeasibility(location);
+      warehouseValidation.validateCapacityAndStock(location, warehouse);
 
-    // if all went well, create the warehouse
-    warehouseStore.create(warehouse);
+      warehouseStore.create(warehouse);
+
+      userTransaction.commit();
+    } catch (Exception e) {
+      try {
+        userTransaction.rollback();
+      } catch (Exception rollbackEx) {
+        // Optionally log rollback failure
+      }
+      throw new IllegalStateException("Failed to create warehouse", e);
+    }
   }
 }

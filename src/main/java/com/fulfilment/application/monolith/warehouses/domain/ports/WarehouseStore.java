@@ -24,5 +24,7 @@ public interface WarehouseStore {
   // And later on we should map the entity to domain model, or API model for response
   Optional<DbWarehouse> findByBusinessUnitCode(String buCode);
 
+  boolean isCreationOrReplacementFeasible(String locationId, int maxNumberOfWarehouses);
+
   Optional<DbWarehouse> findById(String id);
 }

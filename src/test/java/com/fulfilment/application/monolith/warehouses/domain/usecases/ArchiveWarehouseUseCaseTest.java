@@ -3,6 +3,7 @@ package com.fulfilment.application.monolith.warehouses.domain.usecases;
 import com.fulfilment.application.monolith.warehouses.adapters.database.DbWarehouse;
 import com.fulfilment.application.monolith.warehouses.domain.models.Warehouse;
 import com.fulfilment.application.monolith.warehouses.domain.ports.WarehouseStore;
+import jakarta.transaction.UserTransaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +21,8 @@ public class ArchiveWarehouseUseCaseTest {
     @BeforeEach
     void setUp() {
         warehouseStore = mock(WarehouseStore.class);
-        useCase = new ArchiveWarehouseUseCase(warehouseStore);
+        UserTransaction userTransaction = mock(UserTransaction.class);
+        useCase = new ArchiveWarehouseUseCase(warehouseStore, userTransaction);
     }
 
     @Test
@@ -42,7 +44,7 @@ public class ArchiveWarehouseUseCaseTest {
 
         when(warehouseStore.findByBusinessUnitCode("BU2")).thenReturn(Optional.empty());
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> useCase.archive(warehouse));
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> useCase.archive(warehouse));
         assertTrue(ex.getMessage().contains("Any active warehouse with business unit code BU2 is not found."));
         verify(warehouseStore, never()).remove(any());
     }

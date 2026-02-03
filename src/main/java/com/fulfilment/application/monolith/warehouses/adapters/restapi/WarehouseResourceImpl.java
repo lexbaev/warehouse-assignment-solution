@@ -1,11 +1,11 @@
 package com.fulfilment.application.monolith.warehouses.adapters.restapi;
 
+import com.fulfilment.application.monolith.exceptions.BusinessRuleViolationException;
 import com.fulfilment.application.monolith.warehouses.domain.ports.*;
 import com.fulfilment.application.monolith.warehouses.mappers.WarehouseMapper;
 import com.warehouse.api.WarehouseResource;
 import com.warehouse.api.beans.Warehouse;
 import jakarta.enterprise.context.RequestScoped;
-import jakarta.inject.Inject;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.WebApplicationException;
 
@@ -42,7 +42,11 @@ public class WarehouseResourceImpl implements WarehouseResource {
 
   @Override
   public Warehouse createANewWarehouseUnit(@NotNull Warehouse data) {
-    createWarehouseOperation.create(mapper.toDomainModel(data));
+    try {
+        createWarehouseOperation.create(mapper.toDomainModel(data));
+    } catch (BusinessRuleViolationException e) {
+        throw new WebApplicationException(e.getMessage(), 400);
+    }
     return data;
   }
 
@@ -57,13 +61,21 @@ public class WarehouseResourceImpl implements WarehouseResource {
     if (warehouse == null) {
       throw new WebApplicationException("Warehouse with ID " + id + " not found.", 404);
     }
-    archiveWarehouseOperation.archive(mapper.toDomainModel(warehouse));
+    try {
+      archiveWarehouseOperation.archive(mapper.toDomainModel(warehouse));
+    } catch (BusinessRuleViolationException e) {
+        throw new WebApplicationException(e.getMessage(), 400);
+    }
   }
 
   @Override
   public Warehouse replaceTheCurrentActiveWarehouse(
       String businessUnitCode, @NotNull Warehouse data) {
-    replaceWarehouseOperation.replace(mapper.toDomainModel(data));
+    try {
+      replaceWarehouseOperation.replace(mapper.toDomainModel(data));
+    } catch (BusinessRuleViolationException e) {
+        throw new WebApplicationException(e.getMessage(), 400);
+    }
     return data;
   }
 }

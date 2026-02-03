@@ -1,5 +1,6 @@
 package com.fulfilment.application.monolith.warehouses.domain.usecases;
 
+import com.fulfilment.application.monolith.exceptions.BusinessRuleViolationException;
 import com.fulfilment.application.monolith.warehouses.adapters.database.DbWarehouse;
 import com.fulfilment.application.monolith.warehouses.domain.models.Location;
 import com.fulfilment.application.monolith.warehouses.domain.models.Warehouse;
@@ -8,8 +9,7 @@ import com.fulfilment.application.monolith.warehouses.domain.ports.WarehouseStor
 import com.fulfilment.application.monolith.warehouses.domain.validations.WarehouseValidation;
 import com.fulfilment.application.monolith.warehouses.mappers.DbWarehouseMapper;
 import jakarta.enterprise.context.ApplicationScoped;
-
-import java.util.List;
+import jakarta.transaction.UserTransaction;
 
 @ApplicationScoped
 public class ReplaceWarehouseUseCase implements ReplaceWarehouseOperation {
@@ -18,30 +18,43 @@ public class ReplaceWarehouseUseCase implements ReplaceWarehouseOperation {
 
   private final WarehouseValidation warehouseValidation;
 
+  private final UserTransaction userTransaction;
+
   private final DbWarehouseMapper mapper;
 
-  public ReplaceWarehouseUseCase(WarehouseStore warehouseStore, WarehouseValidation warehouseValidation, DbWarehouseMapper mapper) {
+  public ReplaceWarehouseUseCase(WarehouseStore warehouseStore, WarehouseValidation warehouseValidation, UserTransaction userTransaction, DbWarehouseMapper mapper) {
     this.warehouseStore = warehouseStore;
       this.warehouseValidation = warehouseValidation;
+      this.userTransaction = userTransaction;
       this.mapper = mapper;
   }
 
   @Override
-  public void replace(Warehouse newWarehouse) {
-    // My assumption that number of elements is not large (<1000), so fetching all is acceptable
-    List<DbWarehouse> warehouseStoreAll = warehouseStore.getAll();
+  public void replace(Warehouse newWarehouse) throws BusinessRuleViolationException {
+    try {
+      userTransaction.begin();
 
-    DbWarehouse existingWarehouse = warehouseStore.findByBusinessUnitCode(newWarehouse.getBusinessUnitCode())
-            .orElseThrow(() -> new IllegalArgumentException(
-                    "Any active warehouse with business unit code " + newWarehouse.getBusinessUnitCode() + " is not found."));
+      DbWarehouse existingWarehouse = warehouseStore.findByBusinessUnitCode(newWarehouse.getBusinessUnitCode())
+              .orElseThrow(() -> new BusinessRuleViolationException(
+                      "Any active warehouse with business unit code " + newWarehouse.getBusinessUnitCode() + " is not found."));
 
-    Location location = warehouseValidation.validateAndGetLocation(newWarehouse.getLocation());
-    warehouseValidation.validateCreationFeasibility(location, warehouseStoreAll);
-    warehouseValidation.validateCapacityAndStock(location, newWarehouse.getCapacity());
-    warehouseValidation.validateCapacityAccommodation(existingWarehouse.getStock(), newWarehouse.getCapacity());
-    warehouseValidation.validateStockMatching(existingWarehouse.getStock(), newWarehouse.getStock());
+      Location location = warehouseValidation.validateAndGetLocation(newWarehouse.getLocation());
+      warehouseValidation.validateReplacementFeasibility(location);
+      warehouseValidation.validateCapacityAndStock(location, newWarehouse);
+      warehouseValidation.validateCapacityAccommodation(existingWarehouse.getStock(), newWarehouse.getCapacity());
+      warehouseValidation.validateStockMatching(existingWarehouse.getStock(), newWarehouse.getStock());
 
-    warehouseStore.remove(mapper.toDomain(existingWarehouse));
-    warehouseStore.create(newWarehouse);
+      warehouseStore.remove(mapper.toDomain(existingWarehouse));
+      warehouseStore.create(newWarehouse);
+
+      userTransaction.commit();
+    } catch (Exception e) {
+      try {
+        userTransaction.rollback();
+      } catch (Exception rollbackEx) {
+        // Optionally log rollback failure
+      }
+      throw new IllegalStateException("Failed to replace warehouse", e);
+    }
   }
 }
